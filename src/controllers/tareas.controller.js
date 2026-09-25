@@ -1,69 +1,84 @@
-let tareas = [
-    { id: 1, titulo: "Aprender Express", completada: false },
-    { id: 2, titulo: "Practicar Git", completada: true },
-];
+import pool from "../config/db.js";
 
 // GET /tareas - listar todas
-export const obtenerTareas = (req, res) => {
-    res.json(tareas);
+export const obtenerTareas = async (req, res) => {
+  try {
+    const resultado = await pool.query("SELECT * FROM tareas ORDER BY id");
+    res.json(resultado.rows);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al obtener las tareas", error: error.message });
+  }
 };
 
 // GET /tareas/:id - obtener una tarea específica
-export const obtenerTareaPorId = (req, res) => {
+export const obtenerTareaPorId = async (req, res) => {
+  try {
     const id = parseInt(req.params.id);
-    const tarea = tareas.find((t) => t.id === id);
+    const resultado = await pool.query("SELECT * FROM tareas WHERE id = $1", [id]);
 
-    if (!tarea) {
-    return res.status(404).json({ mensaje: "Tarea no encontrada" });
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Tarea no encontrada" });
     }
 
-    res.json(tarea);
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al obtener la tarea", error: error.message });
+  }
 };
 
 // POST /tareas - crear una tarea nueva
-export const crearTarea = (req, res) => {
+export const crearTarea = async (req, res) => {
+  try {
     const { titulo } = req.body;
 
     if (!titulo) {
-    return res.status(400).json({ mensaje: "El título es obligatorio" });
+      return res.status(400).json({ mensaje: "El título es obligatorio" });
     }
 
-    const nuevaTarea = {
-    id: tareas.length + 1,
-    titulo,
-    completada: false,
-    };
+    const resultado = await pool.query(
+      "INSERT INTO tareas (titulo) VALUES ($1) RETURNING *",
+      [titulo]
+    );
 
-    tareas.push(nuevaTarea);
-    res.status(201).json(nuevaTarea);
+    res.status(201).json(resultado.rows[0]);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al crear la tarea", error: error.message });
+  }
 };
 
 // PUT /tareas/:id - actualizar una tarea
-export const actualizarTarea = (req, res) => {
+export const actualizarTarea = async (req, res) => {
+  try {
     const id = parseInt(req.params.id);
-    const tarea = tareas.find((t) => t.id === id);
-
-    if (!tarea) {
-    return res.status(404).json({ mensaje: "Tarea no encontrada" });
-    }
-
     const { titulo, completada } = req.body;
 
-    if (titulo !== undefined) tarea.titulo = titulo;
-    if (completada !== undefined) tarea.completada = completada;
+    const resultado = await pool.query(
+      "UPDATE tareas SET titulo = COALESCE($1, titulo), completada = COALESCE($2, completada) WHERE id = $3 RETURNING *",
+      [titulo, completada, id]
+    );
 
-    res.json(tarea);
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Tarea no encontrada" });
+    }
+
+    res.json(resultado.rows[0]);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al actualizar la tarea", error: error.message });
+  }
 };
 
 // DELETE /tareas/:id - eliminar una tarea
-export const eliminarTarea = (req, res) => {
+export const eliminarTarea = async (req, res) => {
+  try {
     const id = parseInt(req.params.id);
-    const existe = tareas.some((t) => t.id === id);
+    const resultado = await pool.query("DELETE FROM tareas WHERE id = $1 RETURNING *", [id]);
 
-    if (!existe) {
-    return res.status(404).json({ mensaje: "Tarea no encontrada" });
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Tarea no encontrada" });
     }
 
-    tareas = tareas.filter((t) => t.id !== id);
     res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al eliminar la tarea", error: error.message });
+  }
 };
