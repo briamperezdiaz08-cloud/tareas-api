@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import Log from "../models/Log.js";
 
 // GET /tareas - listar todas
 export const obtenerTareas = async (req, res) => {
@@ -40,7 +41,15 @@ export const crearTarea = async (req, res) => {
       [titulo]
     );
 
-    res.status(201).json(resultado.rows[0]);
+    const nuevaTarea = resultado.rows[0];
+
+    await Log.create({
+      tareaId: nuevaTarea.id,
+      accion: "creada",
+      detalle: `Tarea "${nuevaTarea.titulo}" creada por usuario ${req.usuario.email}`,
+    });
+
+    res.status(201).json(nuevaTarea);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al crear la tarea", error: error.message });
   }
@@ -61,7 +70,15 @@ export const actualizarTarea = async (req, res) => {
       return res.status(404).json({ mensaje: "Tarea no encontrada" });
     }
 
-    res.json(resultado.rows[0]);
+    const tareaActualizada = resultado.rows[0];
+
+    await Log.create({
+      tareaId: tareaActualizada.id,
+      accion: "actualizada",
+      detalle: `Tarea actualizada por usuario ${req.usuario.email}`,
+    });
+
+    res.json(tareaActualizada);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al actualizar la tarea", error: error.message });
   }
@@ -76,6 +93,12 @@ export const eliminarTarea = async (req, res) => {
     if (resultado.rows.length === 0) {
       return res.status(404).json({ mensaje: "Tarea no encontrada" });
     }
+
+    await Log.create({
+      tareaId: id,
+      accion: "eliminada",
+      detalle: `Tarea eliminada por usuario ${req.usuario.email}`,
+    });
 
     res.status(204).send();
   } catch (error) {
